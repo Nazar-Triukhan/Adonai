@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Синхронный Метроном</title>
+</head>
+<body>
+  <h1>Синхронный Метроном</h1>
+  
+  <label>
+    Введите название комнаты:
+    <input type="text" id="room-input">
+  </label>
+  <button id="join-room">Подключиться к комнате</button>
+
+  <div id="controls" style="display: none;">
+    <p>Темп: <span id="bpm-display">60</span> BPM</p>
+    <input type="range" id="bpm-slider" min="40" max="200" value="60">
+    <button id="start-button">Запустить метроном</button>
+    <button id="stop-button">Остановить метроном</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    // Элементы интерфейса
+    const roomInput = document.getElementById('room-input');
+    const joinRoomButton = document.getElementById('join-room');
+    const controls = document.getElementById('controls');
+    const bpmDisplay = document.getElementById('bpm-display');
+    const bpmSlider = document.getElementById('bpm-slider');
+    const startButton = document.getElementById('start-button');
+    const stopButton = document.getElementById('stop-button');
+
+    let room = '';
+    let bpm = 60;
+    let intervalId;
+
+    // Подключение к комнате
+    joinRoomButton.addEventListener('click', () => {
+      room = roomInput.value;
+      if (room) {
+        socket.emit('joinRoom', room);
+        controls.style.display = 'block'; // Показать панель управления
+      }
+    });
+
+    // Обновление темпа
+    bpmSlider.addEventListener('input', () => {
+      bpm = bpmSlider.value;
+      bpmDisplay.textContent = bpm;
+      socket.emit('changeBpm', { room, bpm });
+    });
+
+    // Запуск метронома
+    startButton.addEventListener('click', () => {
+      socket.emit('startMetronome', room);
+    });
+
+    // Остановка метронома
+    stopButton.addEventListener('click', () => {
+      socket.emit('stopMetronome', room);
+    });
+
+    // Получение текущих данных комнаты при подключении
+    socket.on('roomData', (data) => {
+      bpm = data.bpm;
+      bpmDisplay.textContent = bpm;
+      bpmSlider.value = bpm;
+      if (data.isPlaying) {
+        startMetronome();
+      }
+    });
+
+    // Обновление темпа от сервера
+    socket.on('updateBpm', (newBpm) => {
+      bpm = newBpm;
+      bpmDisplay.textContent = bpm;
+      bpmSlider.value = bpm;
+      if (intervalId) {
+        clearInterval(intervalId);
+        startMetronome();
+      }
+    });
+
+    // Запуск метронома по сигналу от сервера
+    socket.on('startMetronome', () => {
+      startMetronome();
+    });
+
+    // Остановка метронома по сигналу от сервера
+    socket.on('stopMetronome', () => {
+      stopMetronome();
+    });
+
+    // Функция запуска метронома
+    function startMetronome() {
+      const interval = 60000 / bpm; // Расчет интервала для заданного темпа
+      intervalId = setInterval(() => {
+        console.log('Тик');
+      }, interval);
+    }
+
+    // Функция остановки метронома
+    function stopMetronome() {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  </script>
+</body>
+</html>
